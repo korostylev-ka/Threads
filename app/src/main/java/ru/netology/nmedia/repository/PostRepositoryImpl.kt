@@ -1,5 +1,7 @@
 package ru.netology.nmedia.repository
 
+import android.content.Intent
+import android.os.Bundle
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -39,13 +41,28 @@ class PostRepositoryImpl: PostRepository {
                 gson.fromJson(it, typeToken.type)
             }
     }
+    //запрос поста по id
+    fun getPost(id: Long): Post{
+        val request: Request = Request.Builder()
+            .url("${BASE_URL}/api/slow/posts/$id")
+            .build()
+        //возвращает ответ на запрос
+        return client.newCall(request)
+            .execute()
+            //тело ответа
+            .let { it.body?.string() ?: throw RuntimeException("body is null") }
+            //"распарсим"
+            .let {
+                gson.fromJson(it, Post::class.java)
+            }
+    }
 
-    override fun likeById(id: Long) {
+    override fun likeById(id: Long): Post {
         //получаем пост с id
-        val post = getAll().filter {
-            it.id == id}[0]
-        //если лайк поставлен, то удаляем kfqr
-        if (post.likedByMe == true) {
+        val post = getPost(id)
+
+        //если лайк поставлен, то удаляем лайк
+        if (post.likedByMe) {
             val request: Request = Request.Builder()
                 //delete запрос
                 .delete()
@@ -54,7 +71,10 @@ class PostRepositoryImpl: PostRepository {
 
             return client.newCall(request)
                 .execute()
-                .close()
+                .let { it.body?.string() ?: throw RuntimeException("body is null") }
+                .let {
+                    gson.fromJson(it, Post::class.java)
+                }
         } else {
             //если лайк не поcтавлен, ставим его
             val request: Request = Request.Builder()
@@ -65,7 +85,10 @@ class PostRepositoryImpl: PostRepository {
 
             return client.newCall(request)
                 .execute()
-                .close()
+                .let { it.body?.string() ?: throw RuntimeException("body is null") }
+                .let {
+                    gson.fromJson(it, Post::class.java)
+                }
         }
     }
 

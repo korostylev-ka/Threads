@@ -74,24 +74,20 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun likeById(id: Long) {
-        val posts = _data.value?.posts?.map {
-            if (it.id != id) it else {
-                it.copy(
-                    likedByMe = !it.likedByMe,
-                    likes = (if (!it.likedByMe) ++it.likes else --it.likes)
-                )
-            }
-        }
-
         thread {
-            repository.likeById(id)
-            loadPosts()
+            //получаем пост с измененным количеством лайков
+           val postLiked = repository.likeById(id)
+            //изменяем пост в списке постов, меняя поле likedByMe
+            val posts = _data.value?.posts?.map {
+                if (it.id == id) {
+                    postLiked.copy(likedByMe = !it.likedByMe)
+                } else it
+            }
+            _data.postValue(
+                posts?.let { _data.value?.copy(posts = posts) }
+            )
         }
 
-        //обновляем список постов с поставленным лайком
-        _data.postValue(
-            posts?.let { _data.value?.copy(posts = posts) }
-        )
 
     }
 
