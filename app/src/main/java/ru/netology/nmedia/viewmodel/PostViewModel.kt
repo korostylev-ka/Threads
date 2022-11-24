@@ -73,10 +73,10 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
         edited.value = edited.value?.copy(content = text)
     }
 
-    fun likeById(id: Long) {
+    fun likeById(id: Long, isLiked: Boolean) {
         thread {
             //получаем пост с измененным количеством лайков
-           val postLiked = repository.likeById(id)
+           val postLiked = repository.likeById(id, isLiked)
             //изменяем пост в списке постов, меняя поле likedByMe
             val posts = _data.value?.posts?.map {
                 if (it.id == id) {
@@ -90,7 +90,6 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
 
 
     }
-
     fun removeById(id: Long) {
         thread {
             // Оптимистичная модель
@@ -109,7 +108,5 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
                 _data.postValue(_data.value?.copy(posts = old))
             }
         }
-
-
     }
 }

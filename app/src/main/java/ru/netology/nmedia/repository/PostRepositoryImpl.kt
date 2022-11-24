@@ -57,12 +57,9 @@ class PostRepositoryImpl: PostRepository {
             }
     }
 
-    override fun likeById(id: Long): Post {
-        //получаем пост с id
-        val post = getPost(id)
-
+    override fun likeById(id: Long, isLiked: Boolean): Post {
         //если лайк поставлен, то удаляем лайк
-        if (post.likedByMe) {
+        if (isLiked == true) {
             val request: Request = Request.Builder()
                 //delete запрос
                 .delete()
@@ -79,7 +76,7 @@ class PostRepositoryImpl: PostRepository {
             //если лайк не поcтавлен, ставим его
             val request: Request = Request.Builder()
                 //post
-                .post(gson.toJson(post).toRequestBody(jsonType))
+                .post(gson.toJson(id).toRequestBody(jsonType))
                 .url("${BASE_URL}/api/slow/posts/$id/likes")
                 .build()
 
