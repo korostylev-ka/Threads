@@ -5,11 +5,11 @@ import android.os.Bundle
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import ru.netology.nmedia.dto.Post
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 
@@ -40,6 +40,34 @@ class PostRepositoryImpl: PostRepository {
             .let {
                 gson.fromJson(it, typeToken.type)
             }
+    }
+
+    //асинхронный запрос списка постов
+    override fun getAllAsync(callback: PostRepository.GetAllCallback) {
+        // запрос
+        val request: Request = Request.Builder()
+            .url("${BASE_URL}/api/slow/posts")
+            .build()
+        client.newCall(request)
+                //коллбек из okhttp3
+            .enqueue(object : Callback {
+                //переопределяем при успешном ответе
+                override fun onResponse(call: Call, response: Response) {
+                    //считываем тело ответа
+                    try {
+                        val body = response.body?.string() ?: throw RuntimeException("body is null")
+                        callback.onSuccess(gson.fromJson(body, typeToken.type))
+                    } catch (e: Exception) {
+                        callback.onError(e)
+                    }
+
+                }
+
+                override fun onFailure(call: Call, e: IOException) {
+                    callback.onError(e)
+                }
+            })
+
     }
     //запрос поста по id
     fun getPost(id: Long): Post{
@@ -88,6 +116,65 @@ class PostRepositoryImpl: PostRepository {
                 }
         }
     }
+    //выставление/снятие лайка асинхронно
+    override fun likeByIdAsync(
+        id: Long,
+        isLiked: Boolean,
+        callback: PostRepository.LikeByIdCallback
+    ) {
+        if (isLiked == true) {
+            val request: Request = Request.Builder()
+                //delete запрос
+                .delete()
+                .url("${BASE_URL}/api/slow/posts/$id/likes")
+                .build()
+            client.newCall(request)
+                //коллбек
+                .enqueue(object : Callback {
+                    //переопределяем при успешном ответе
+                    override fun onResponse(call: Call, response: Response) {
+                        //считываем тело ответа
+                        try {
+                            val body = response.body?.string() ?: throw RuntimeException("body is null")
+                            callback.onSuccess(gson.fromJson(body, Post::class.java))
+                        } catch (e: Exception) {
+                            callback.onError(e)
+                        }
+
+                    }
+
+                    override fun onFailure(call: Call, e: IOException) {
+                        callback.onError(e)
+                    }
+                })
+
+        } else {
+            val request: Request = Request.Builder()
+                //post
+                .post(gson.toJson(id).toRequestBody(jsonType))
+                .url("${BASE_URL}/api/slow/posts/$id/likes")
+                .build()
+            client.newCall(request)
+                //коллбек из okhttp3
+                .enqueue(object : Callback {
+                    //переопределяем при успешном ответе
+                    override fun onResponse(call: Call, response: Response) {
+                        //считываем тело ответа
+                        try {
+                            val body = response.body?.string() ?: throw RuntimeException("body is null")
+                            callback.onSuccess(gson.fromJson(body, Post::class.java))
+                        } catch (e: Exception) {
+                            callback.onError(e)
+                        }
+
+                    }
+                    override fun onFailure(call: Call, e: IOException) {
+                        callback.onError(e)
+                    }
+                })
+
+        }
+    }
 
     override fun save(post: Post) {
         val request: Request = Request.Builder()
@@ -101,6 +188,34 @@ class PostRepositoryImpl: PostRepository {
             .close()
     }
 
+    //асинхронное сохранение поста
+    override fun saveAsync(post: Post, callback: PostRepository.SaveCallback) {
+        val request: Request = Request.Builder()
+            .post(gson.toJson(post).toRequestBody(jsonType))
+            .url("${BASE_URL}/api/slow/posts")
+            .build()
+
+        client.newCall(request)
+            //коллбек из okhttp3
+            .enqueue(object : Callback {
+                //переопределяем при успешном ответе
+                override fun onResponse(call: Call, response: Response) {
+                    //считываем тело ответа
+                    try {
+                        val body = response.body?.string() ?: throw RuntimeException("body is null")
+                        callback.onSuccess(gson.fromJson(body, Post::class.java))
+                    } catch (e: Exception) {
+                        callback.onError(e)
+                    }
+
+                }
+
+                override fun onFailure(call: Call, e: IOException) {
+                    callback.onError(e)
+                }
+            })
+    }
+
     override fun removeById(id: Long) {
         val request: Request = Request.Builder()
             //delete запрос
@@ -111,5 +226,24 @@ class PostRepositoryImpl: PostRepository {
         client.newCall(request)
             .execute()
             .close()
+    }
+    //асинхронное ужаление поста
+    override fun removeByIdAsync(id: Long, callback: PostRepository.RemoveByIdCallback) {
+        val request: Request = Request.Builder()
+            .delete()
+            .url("${BASE_URL}/api/slow/posts/$id")
+            .build()
+
+        client.newCall(request)
+            //коллбек из okhttp3
+            .enqueue(object : Callback {
+                //переопределяем при успешном ответе
+                override fun onResponse(call: Call, response: Response) {
+                    //оставляем тело пустым
+                }
+                override fun onFailure(call: Call, e: IOException) {
+                    callback.onError(e)
+                }
+            })
     }
 }
