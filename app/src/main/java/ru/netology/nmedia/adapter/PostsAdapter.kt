@@ -3,9 +3,11 @@ package ru.netology.nmedia.adapter
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.PopupMenu
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import ru.netology.nmedia.R
 import ru.netology.nmedia.databinding.CardPostBinding
 import ru.netology.nmedia.dto.Post
@@ -37,10 +39,36 @@ class PostViewHolder(
 ) : RecyclerView.ViewHolder(binding.root) {
 
     fun bind(post: Post) {
+        val url = "http://10.0.2.2:9999/avatars/${post.authorAvatar}"
+        val urlAttachments = "http://10.0.2.2:9999/images/${post.attachment?.url}"
         binding.apply {
             author.text = post.author
+            //если поле аватара пустое, устанавливаем значок по умолчанию
+            if (post.authorAvatar == "") {
+                avatar.setImageResource(R.drawable.ic_no_avatar_24)
+            } else {
+                //загружаем аватар с помощью Glide
+                Glide.with(binding.avatar)
+                    .load(url)
+                    .placeholder(R.drawable.ic_no_avatar_24)
+                    .error(R.drawable.ic_baseline_error_24)
+                    .timeout(10_000)
+                    .circleCrop() //круглое изображение
+                    .into(binding.avatar)
+            }
             published.text = post.published
             content.text = post.content
+            //если вложений нет, view невидима и не занимает места
+            if (post.attachment == null) {
+                attachment.isVisible = false
+            //если есть вложение
+            } else {
+                Glide.with(binding.attachment)
+                    .load(urlAttachments)
+                    .timeout(10_000)
+                    .into(binding.attachment)
+
+            }
             // в адаптере
             like.isChecked = post.likedByMe
             like.text = "${post.likes}"
