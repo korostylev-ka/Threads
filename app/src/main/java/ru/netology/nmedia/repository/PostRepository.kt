@@ -34,7 +34,7 @@ interface PostRepository {
     //интерфейс коллбэка сохранения
     interface RemoveByIdCallback {
         //вызывается в случае успеха
-        fun onSuccess(posts: List<Post>) {}
+        fun onSuccess(unit: Unit) {}
         //вызыватся в случае неудачи
         fun onError(e: Exception) {}
     }

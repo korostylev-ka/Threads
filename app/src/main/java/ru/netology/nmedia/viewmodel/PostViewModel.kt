@@ -1,7 +1,10 @@
 package ru.netology.nmedia.viewmodel
 
 import android.app.Application
+import android.widget.Toast
 import androidx.lifecycle.*
+import ru.netology.nmedia.R
+import ru.netology.nmedia.activity.AppActivity
 import ru.netology.nmedia.dto.Post
 import ru.netology.nmedia.model.FeedModel
 import ru.netology.nmedia.repository.*
@@ -55,16 +58,6 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
         })
     }
 
-    /*fun save() {
-        edited.value?.let {
-            thread {
-                repository.save(it)
-                _postCreated.postValue(Unit)
-            }
-        }
-        edited.value = empty
-    }*/
-
     //сохраняем асинхронно
     fun save() {
         edited.value?.let {
@@ -75,6 +68,9 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
 
                override fun onError(e: Exception) {
                    _data.postValue(FeedModel(error = true))
+                   //при ошибке создаем всплывающее состояние. Даем возможность еще раз сохранить
+                   Toast.makeText(getApplication(),R.string.error_loading,Toast.LENGTH_LONG)
+                       .show()
                }
            })
         }
@@ -93,23 +89,9 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
         edited.value = edited.value?.copy(content = text)
     }
 
-    /*fun likeById(id: Long, isLiked: Boolean) {
-        thread {
-            //получаем пост с измененным количеством лайков
-           val postLiked = repository.likeById(id, isLiked)
-            //изменяем пост в списке постов, меняя поле likedByMe
-            val posts = _data.value?.posts?.map {
-                if (it.id == id) {
-                    postLiked.copy(likedByMe = !it.likedByMe)
-                } else it
-            }
-            _data.postValue(
-                posts?.let { _data.value?.copy(posts = posts) }
-            )
-        }
-    }*/
 
     fun likeById(id: Long, isLiked: Boolean) {
+        val old = _data.value?.posts.orEmpty()
         repository.likeByIdAsync(id, isLiked, object : PostRepository.LikeByIdCallback{
             override fun onSuccess(post: Post) {
                 val posts = _data.value?.posts?.map {
@@ -122,32 +104,21 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
             override fun onError(e: Exception) {
-                _data.postValue(FeedModel(error = true))
-
-
+                //создаем уведомление об ошибке конкретного поста
+                Toast.makeText(getApplication(), R.string.error_loading_post, Toast.LENGTH_LONG)
+                    .show()
+                _data.postValue(
+                    _data.value?.copy(posts = old)
+                    )
+                //загружаем заново все посты, если ошибка будет "глобальная", тогда выйдет ошибка и кнопка RETRY
+                loadPosts()
+                /*убираем
+                data.postValue(FeedModel(error = true))
+                чтобы не выдавалась общая ошибка по всем постам
+                 */
             }
         })
-
     }
-    /*fun removeById(id: Long) {
-        thread {
-            // Оптимистичная модель
-            //сохраняем старый список постов
-            val old = _data.value?.posts.orEmpty()
-            _data.postValue(
-                _data.value?.copy(posts = _data.value?.posts.orEmpty()
-                    .filter { it.id != id }
-                )
-            )
-            try {
-                //пробуем удалить на сервере
-                repository.removeById(id)
-            } catch (e: IOException) {
-                //если что-то пошло не так, "откатываемся" к предыдущему состоянию
-                _data.postValue(_data.value?.copy(posts = old))
-            }
-        }
-    }*/
 
     //удаляем асинхронно
     fun removeById(id: Long) {
@@ -158,14 +129,19 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
             )
         )
         repository.removeByIdAsync(id, object : PostRepository.RemoveByIdCallback{
-            override fun onSuccess(posts: List<Post>) {
-                _data.postValue(FeedModel(posts = posts, empty = posts.isEmpty()))
+            override fun onSuccess(unit: Unit) {
+                //_data.postValue(FeedModel(posts = posts, empty = posts.isEmpty()))
 
             }
             override fun onError(e: Exception) {
+                //сообщаем об ошибке
+                Toast.makeText(getApplication(), R.string.error_loading, Toast.LENGTH_LONG)
+                    .show()
                 _data.postValue(FeedModel(error = true))
                 _data.postValue(_data.value?.copy(posts = old)
                 )
+                //загружаем заново список постов, включая удаленный
+                loadPosts()
             }
         })
     }

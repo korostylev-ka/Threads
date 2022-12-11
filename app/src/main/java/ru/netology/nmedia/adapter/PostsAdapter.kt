@@ -63,6 +63,7 @@ class PostViewHolder(
                 attachment.isVisible = false
             //если есть вложение
             } else {
+                attachment.isVisible = true
                 Glide.with(binding.attachment)
                     .load(urlAttachments)
                     .timeout(10_000)
