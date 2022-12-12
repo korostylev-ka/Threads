@@ -1,13 +1,21 @@
 package ru.netology.nmedia.repository
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import ru.netology.nmedia.activity.AppActivity
+import ru.netology.nmedia.api.PostsApi
 import ru.netology.nmedia.dto.Post
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -26,6 +34,7 @@ class PostRepositoryImpl: PostRepository {
         private val jsonType = "application/json".toMediaType()
     }
 
+    //синхронный запролс постов
     override fun getAll(): List<Post> {
         // запрос
         val request: Request = Request.Builder()
@@ -42,33 +51,29 @@ class PostRepositoryImpl: PostRepository {
             }
     }
 
-    //асинхронный запрос списка постов
+    //запрос списка постов через retrofit
     override fun getAllAsync(callback: PostRepository.GetAllCallback) {
-        // запрос
-        val request: Request = Request.Builder()
-            .url("${BASE_URL}/api/slow/posts")
-            .build()
-        client.newCall(request)
-                //коллбек из okhttp3
-            .enqueue(object : Callback {
-                //переопределяем при успешном ответе
-                override fun onResponse(call: Call, response: Response) {
-                    //считываем тело ответа
-                    try {
-                        val body = response.body?.string() ?: throw RuntimeException("body is null")
-                        callback.onSuccess(gson.fromJson(body, typeToken.type))
-                    } catch (e: Exception) {
-                        callback.onError(e)
+        PostsApi.retrofitService.getAll().enqueue(object : Callback<List<Post>> {
+            override fun onResponse(call: Call<List<Post>>, response: Response<List<Post>>) {
+                try {
+                    //если ответ неуспешный (не 2ХХ)
+                    if (!response.isSuccessful) {
+                        callback.onError(RuntimeException(response.message()))
+                        return
                     }
-
-                }
-
-                override fun onFailure(call: Call, e: IOException) {
+                    //ответ успешный 2хх
+                    callback.onSuccess(response.body() ?: throw RuntimeException("body is null"))
+                } catch (e: Exception) {
                     callback.onError(e)
                 }
-            })
+            }
+            override fun onFailure(call: Call<List<Post>>, t: Throwable) {
+                callback.onError(Exception(t))
+            }
+        })
 
     }
+
     //запрос поста по id
     fun getPost(id: Long): Post{
         val request: Request = Request.Builder()
@@ -85,6 +90,7 @@ class PostRepositoryImpl: PostRepository {
             }
     }
 
+    //синхронный запрос на лайк/дизлайк
     override fun likeById(id: Long, isLiked: Boolean): Post {
         //если лайк поставлен, то удаляем лайк
         if (isLiked == true) {
@@ -116,66 +122,59 @@ class PostRepositoryImpl: PostRepository {
                 }
         }
     }
-    //выставление/снятие лайка асинхронно
+
+    //выставление/снятие лайка через retrofit
     override fun likeByIdAsync(
         id: Long,
         isLiked: Boolean,
         callback: PostRepository.LikeByIdCallback
     ) {
+        //дизлвайк
         if (isLiked == true) {
-            val request: Request = Request.Builder()
-                //delete запрос
-                .delete()
-                .url("${BASE_URL}/api/slow/posts/$id/likes")
-                .build()
-            client.newCall(request)
-                //коллбек
-                .enqueue(object : Callback {
-                    //переопределяем при успешном ответе
-                    override fun onResponse(call: Call, response: Response) {
-                        //считываем тело ответа
-                        try {
-                            val body = response.body?.string() ?: throw RuntimeException("body is null")
-                            callback.onSuccess(gson.fromJson(body, Post::class.java))
-                        } catch (e: Exception) {
-                            callback.onError(e)
+            PostsApi.retrofitService.dislikeById(id).enqueue(object : Callback<Post> {
+                override fun onResponse(call: Call<Post>, response: Response<Post>) {
+                    try {
+                        //если ответ неуспешный (не 2ХХ)
+                        if (!response.isSuccessful) {
+                            callback.onError(RuntimeException(response.message()))
+                            return
                         }
-
-                    }
-
-                    override fun onFailure(call: Call, e: IOException) {
+                        //ответ успешный 2хх
+                        callback.onSuccess(response.body() ?: throw RuntimeException("body is null"))
+                    } catch (e: Exception) {
                         callback.onError(e)
                     }
-                })
+                }
 
+                override fun onFailure(call: Call<Post>, t: Throwable) {
+                    callback.onError(Exception(t))
+                }
+            })
+            //лайк
         } else {
-            val request: Request = Request.Builder()
-                //post
-                .post(gson.toJson(id).toRequestBody(jsonType))
-                .url("${BASE_URL}/api/slow/posts/$id/likes")
-                .build()
-            client.newCall(request)
-                //коллбек из okhttp3
-                .enqueue(object : Callback {
-                    //переопределяем при успешном ответе
-                    override fun onResponse(call: Call, response: Response) {
-                        //считываем тело ответа
-                        try {
-                            val body = response.body?.string() ?: throw RuntimeException("body is null")
-                            callback.onSuccess(gson.fromJson(body, Post::class.java))
-                        } catch (e: Exception) {
-                            callback.onError(e)
+            PostsApi.retrofitService.likeById(id).enqueue(object : Callback<Post> {
+                override fun onResponse(call: Call<Post>, response: Response<Post>) {
+                    try {
+                        //если ответ неуспешный (не 2ХХ)
+                        if (!response.isSuccessful) {
+                            callback.onError(RuntimeException(response.message()))
+                            return
                         }
-
-                    }
-                    override fun onFailure(call: Call, e: IOException) {
+                        //ответ успешный 2хх
+                        callback.onSuccess(response.body() ?: throw RuntimeException("body is null"))
+                    } catch (e: Exception) {
                         callback.onError(e)
                     }
-                })
+                }
 
+                override fun onFailure(call: Call<Post>, t: Throwable) {
+                    callback.onError(Exception(t))
+                }
+            })
         }
     }
 
+    //синхронное сохранение поста
     override fun save(post: Post) {
         val request: Request = Request.Builder()
              //post запрос
@@ -188,32 +187,28 @@ class PostRepositoryImpl: PostRepository {
             .close()
     }
 
-    //асинхронное сохранение поста
+    //сохранение поста через retrofit
     override fun saveAsync(post: Post, callback: PostRepository.SaveCallback) {
-        val request: Request = Request.Builder()
-            .post(gson.toJson(post).toRequestBody(jsonType))
-            .url("${BASE_URL}/api/slow/posts")
-            .build()
-
-        client.newCall(request)
-            //коллбек из okhttp3
-            .enqueue(object : Callback {
-                //переопределяем при успешном ответе
-                override fun onResponse(call: Call, response: Response) {
-                    //считываем тело ответа
-                    try {
-                        val body = response.body?.string() ?: throw RuntimeException("body is null")
-                        callback.onSuccess(gson.fromJson(body, Post::class.java))
-                    } catch (e: Exception) {
-                        callback.onError(e)
+        PostsApi.retrofitService.save(post).enqueue(object : Callback<Post> {
+            override fun onResponse(call: Call<Post>, response: Response<Post>) {
+                try {
+                    //если ответ неуспешный (не 2ХХ)
+                    if (!response.isSuccessful) {
+                        callback.onError(RuntimeException(response.message()))
+                        //Toast.makeText(, "Error",Toast.LENGTH_SHORT)
+                        return
                     }
-
-                }
-
-                override fun onFailure(call: Call, e: IOException) {
+                    //ответ успешный 2хх
+                    callback.onSuccess(response.body() ?: throw RuntimeException("body is null"))
+                } catch (e: Exception) {
                     callback.onError(e)
                 }
-            })
+            }
+
+            override fun onFailure(call: Call<Post>, t: Throwable) {
+                callback.onError(Exception(t))
+            }
+        })
     }
 
     override fun removeById(id: Long) {
@@ -227,25 +222,31 @@ class PostRepositoryImpl: PostRepository {
             .execute()
             .close()
     }
-    //асинхронное ужаление поста
+    //удаление поста через retrofit
     override fun removeByIdAsync(id: Long, callback: PostRepository.RemoveByIdCallback) {
-        val request: Request = Request.Builder()
-            .delete()
-            .url("${BASE_URL}/api/slow/posts/$id")
-            .build()
-
-        client.newCall(request)
-            //коллбек из okhttp3
-            .enqueue(object : Callback {
-                //переопределяем при успешном ответе
-                override fun onResponse(call: Call, response: Response) {
-                    //оставляем тело пустым
-                }
-                override fun onFailure(call: Call, e: IOException) {
+        PostsApi.retrofitService.removeById(id).enqueue(object : Callback<Unit> {
+            override fun onResponse(call: Call<Unit>, response: Response<Unit>) {
+                try {
+                    //если ответ неуспешный (не 2ХХ)
+                    if (!response.isSuccessful) {
+                        callback.onError(RuntimeException(response.message()))
+                        return
+                    }
+                    //ответ успешный, ничего не возвращаем
+                } catch (e: Exception) {
                     callback.onError(e)
                 }
-            })
+            }
+
+            override fun onFailure(call: Call<Unit>, t: Throwable) {
+                callback.onError(Exception(t))
+            }
+        })
+
     }
-
-
 }
+
+
+
+
+
